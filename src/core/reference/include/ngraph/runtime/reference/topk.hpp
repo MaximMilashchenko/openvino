@@ -43,6 +43,64 @@ inline bool sort_indices_ascending(const std::tuple<T, U>& a, const std::tuple<T
     return std::get<1>(a) < std::get<1>(b);
 }
 
+// my sorting
+template <class RandomAccessIterator, class Compare>
+void insertionsort(RandomAccessIterator first, RandomAccessIterator last, Compare comp)
+{
+    if (first == last) return;
+
+    for (RandomAccessIterator it = first+1; it < last; ++it)
+    {
+        RandomAccessIterator current_element = it;
+
+        for (RandomAccessIterator i = it - 1; i >= first; --i)
+        {
+            if (comp(*i, *current_element)) 
+            {
+                std::swap(*i, *current_element);
+                current_element--;
+            } 
+            else 
+            {
+                break;
+            }
+        }
+    }
+}
+
+template <class RandomAccessIterator, class Compare>
+RandomAccessIterator Partition(RandomAccessIterator first, RandomAccessIterator last, Compare comp)
+{
+    RandomAccessIterator pivotal = std::prev(last, 1);
+    RandomAccessIterator less = first;
+
+    for (RandomAccessIterator j = first; j < pivotal; ++j) 
+    {
+        if (comp(*j, *pivotal))
+        {
+            swap(*j, *less);
+            ++less; 
+        }
+    }
+    std::swap(*less, *pivotal);
+    return less;
+}
+
+template <class RandomAccessIterator, class Compare>
+void _sort(RandomAccessIterator first, RandomAccessIterator last, Compare comp)
+{
+    if (std::distance(first, last) < 10)
+    {
+        insertionsort(first, last, comp);
+    }  
+    else if (std::distance(first, last) > 1)
+    {
+        RandomAccessIterator q = Partition(first, last, comp);
+        _sort(first, q, comp);
+        _sort(q++, last, comp);
+    }
+}
+
 template <typename T, typename U>
 void topk(const T* arg,
           U* out_indices,
@@ -96,13 +154,13 @@ void topk(const T* arg,
         case op::v1::TopK::SortType::NONE:
             break;
         case op::v1::TopK::SortType::SORT_INDICES:
-            std::sort(workspace.begin(), workspace.begin() + k, sort_indices_ascending<T, U>);
+            _sort(workspace.begin(), workspace.begin() + k, sort_indices_ascending<T, U>);
             break;
         case op::v1::TopK::SortType::SORT_VALUES:
             if (compute_max)
-                std::sort(workspace.begin(), workspace.begin() + k, compare_max<T, U>);
+                _sort(workspace.begin(), workspace.begin() + k, compare_max<T, U>);
             else
-                std::sort(workspace.begin(), workspace.begin() + k, compare_min<T, U>);
+                _sort(workspace.begin(), workspace.begin() + k, compare_min<T, U>);
         }
         for (size_t j = 0; j < k; j++) {
             tuple<T, U> entry = workspace[j];
